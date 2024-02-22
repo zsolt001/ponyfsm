@@ -1,0 +1,8 @@
+{
+  "locks": [
+    {
+      "locator": "github.com/ponylang/logger.git",
+      "revision": "1.0.1"
+    }
+  ]
+}

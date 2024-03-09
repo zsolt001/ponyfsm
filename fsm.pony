@@ -22,23 +22,7 @@ class Event is Named
   fun name() : String => _name
 
 
-
 type Action is {(String):String}
-
-class TransitionMapKey is Hashable 
-  let _state : String
-  let _event : String
-
-  new create(s: String, e: String) =>
-    _state = s
-    _event = e
-
-  fun box hash() : USize val =>
-    (_state + _event).hash()
-  
-  fun box eq(that: TransitionMapKey) : Bool =>
-    _state == that._state
-
 
 
 class Transition
@@ -59,6 +43,19 @@ class Fsm
   let states: Array[State]
   let events: Array[Event]
   let transitionMap: Map[String,Transition]
+  var currentState: State
+  let logger: StringLogger
+
+  new init(s: Array[State], e: Array[Event], t: Array[Transition], l: StringLogger) =>
+    states = s
+    events = e
+    transitionMap = HashMap[String, Transition, HashEq[String]]
+    for tr in t.values() do
+      transitionMap.insert(tr.source.name()+tr.event.name(), tr)
+    end
+    currentState = s(0)
+    logger = l
+
 
   new create(states': Array[State], events': Array[Event], transitions': Array[Transition]) =>
     states = states'
@@ -68,9 +65,10 @@ class Fsm
       transitionMap.insert(tr.source.name()+tr.event.name(), tr)
     end
 
-
-
-
+  fun handleEvent(e: Event) =>
+    var key = currentState.name() + e.name()
+    let tr = transitionMap(key)
+    currentState = tr.target
 
 actor Main
   new create(env: Env) =>
@@ -89,3 +87,20 @@ actor Main
     // Actions
     let noAction : Action = {(s:String):String => s}
 
+    let unlock = Transition(lockedState, unlockedState, coinEvent, noAction)
+    let remainLocked = Transition(lockedState, lockedState, pushEvent, noAction)
+    let goThrough = Transition(unlockedState, lockedState, pushEvent, noAction)
+    let takeMoreMoney = Transition(unlockedState, unlockedState, coinEvent, noAction)
+
+    let states = [
+      lockedState 
+      unlockedState
+    ]
+    let events = [pushEvent; coinEvent]
+    let transitions = [
+      unlock
+      remainLocked
+      goThrough
+      takeMoreMoney
+    ]
+    let turnstile = Fsm.init(states, events, transitions, logger)

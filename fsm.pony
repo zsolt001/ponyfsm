@@ -12,6 +12,9 @@ class State is Named
 
   fun name() : String => _name
 
+  fun ne(that: box->State) =>
+    this._name != that._name
+
 
 class Event is Named
   let _name:String
@@ -27,7 +30,7 @@ type Action is {(String):String}
 
 class Transition
   let source: State
-  let target: State
+  let target: State 
   let event: Event
   let action: Action
 
@@ -43,32 +46,32 @@ class Fsm
   let states: Array[State]
   let events: Array[Event]
   let transitionMap: Map[String,Transition]
-  var currentState: State
-  let logger: StringLogger
+  var currentState: State ref
+  let logger: Logger[String val] 
 
-  new init(s: Array[State], e: Array[Event], t: Array[Transition], l: StringLogger) =>
-    states = s
-    events = e
-    transitionMap = HashMap[String, Transition, HashEq[String]]
-    for tr in t.values() do
-      transitionMap.insert(tr.source.name()+tr.event.name(), tr)
-    end
-    currentState = s(0)
+  new create(states': Array[State], events': Array[Event], transitions': Array[Transition], l: Logger[String]) ? =>
     logger = l
-
-
-  new create(states': Array[State], events': Array[Event], transitions': Array[Transition]) =>
     states = states'
     events = events'
-    transitionMap = Map[String, Transition]
+    transitionMap = HashMap[String, Transition, HashEq[String]]
     for tr in transitions'.values() do
       transitionMap.insert(tr.source.name()+tr.event.name(), tr)
     end
+    currentState = states(0)?
 
   fun handleEvent(e: Event) =>
-    var key = currentState.name() + e.name()
-    let tr = transitionMap(key)
-    currentState = tr.target
+    let key : String = currentState.name() + e.name()
+    try 
+      let tr = transitionMap(key)?
+      if currentState.name() != tr.target.name() then
+        logger.log("input: " + key + " >>> state transition: "+currentState.name() + "->"+tr.target.name())
+        currentState = tr.target
+      else
+        logger.log("input: " + key + " >>> no state transition, staying in: "+currentState.name())
+      end
+    else
+      logger.log("input: " + key + "did not find this transition in the transition map: ")
+    end
 
 actor Main
   new create(env: Env) =>
@@ -103,4 +106,8 @@ actor Main
       goThrough
       takeMoreMoney
     ]
-    let turnstile = Fsm.init(states, events, transitions, logger)
+    try 
+      let turnstile:Fsm = Fsm.create(states, events, transitions, logger) ?
+      turnstile.handleEvent(coinEvent)
+      turnstile.handleEvent(pushEvent)
+    end
